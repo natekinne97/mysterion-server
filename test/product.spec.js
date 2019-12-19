@@ -6,11 +6,11 @@ const {DBURL} = require('../src/config');
 describe('product end-points', ()=>{
     let items = helpers.makeProductArray();
     before('make connection', ()=>{
-      helpers.insertItems(items, DBURL);
+      helpers.insertItems(items, DBURL, 'products');
     });
 
     after('removes all elements of collection', ()=>{
-      helpers.removeCollections(DBURL);
+      helpers.removeCollections(DBURL, 'products');
     });
 
     it('GET returns all products', ()=>{

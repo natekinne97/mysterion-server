@@ -30,12 +30,32 @@ makeProductArray = ()=>{
     ];
 }
 
+makePortfolioArray = ()=>{
+  return [
+    {
+      image: "some image",
+      company: "a company",
+      review: "I liked it"
+    },
+    {
+      image: "some image 2",
+      company: "a company 2",
+      review: "I liked it 2"
+    },
+    {
+      image: "some image 2",
+      company: "a company 2",
+      review: "I liked it 2"
+    },
+  ];
+}
 
-insertItems = (items, url) =>{
-    MongoClient.connect(url, (err, db)=>{
+
+insertItems = (items, url, collection) =>{
+    MongoClient.connect(url,  { useUnifiedTopology: true, useNewUrlParser: true },(err, db)=>{
         let dbo = db.db('mysterion-test');
         
-        dbo.collection('products').insertMany(items, (err, result)=>{
+        dbo.collection(collection).insertMany(items, (err, result)=>{
             if(err)console.log(err);
             if(result){
                 console.log('product inserted');
@@ -45,12 +65,16 @@ insertItems = (items, url) =>{
     });
 }
 
-removeCollections = (url)=>{
-  MongoClient.connect(url, (err, db) => {
-    let dbo = db.db("mysterion-test");
+removeCollections = (url, collection)=>{
+  MongoClient.connect(
+    url,
+    { useUnifiedTopology: true, useNewUrlParser: true },
+    (err, db) => {
+      let dbo = db.db("mysterion-test");
 
-    dbo.collection("products").remove({});
-  });
+      dbo.collection(collection).remove({});
+    }
+  );
 }
 
 
@@ -58,4 +82,5 @@ module.exports = {
     makeProductArray,
     insertItems,
     removeCollections,
+    makePortfolioArray,
 }

@@ -1,5 +1,4 @@
 const express = require('express');
-const {DBURL} = require('mongoose');
 const ProductService = require('./productservice');
 const jsonBodyParser = express.json();
 const xss = require('xss');
@@ -13,6 +12,7 @@ productRouter.route('/')
            
             const items = await ProductService.findAll();
             if(!items){
+                console.log('no items');
                 return res.status(400).json({
                     error: "No Items Found"
                 })
@@ -55,18 +55,16 @@ productRouter.route('/')
           description: xss(description),
           price: price
         };
-
-         // validate the post
+            // validate the post
         for (const key of Object.keys(newItem)) {
             if (!newItem[key]) {
-               
+            
                 return res.status(400).json({
                     error: `Missing field in ${key}`
-                })
+                }).end()
             }
         }
-
-        // check if there are characters 
+       
         for (const key of Object.keys(newItem)) {
             if (/^ *$/.test(newItem[key])) {
                 // It has only spaces, or is empty
@@ -76,19 +74,18 @@ productRouter.route('/')
             }
         }
 
-         try {
-           let item = await ProductService.create(newItem);
-
-           return res.status(200).json(item);
-         } catch (err) {
-           console.log(err);
-           return res
-             .status(400)
-             .json({
-               error: "Something went wrong"
-             })
-             .end();
-         }
+        try {
+          let item = await ProductService.create(newItem);
+          return res.status(200).json(item);
+        } catch (err) {
+          console.log(err);
+          return res
+            .status(400)
+            .json({
+              error: "Something went wrong"
+            })
+            .end();
+        }
     });
 
 productRouter.route('/:id')
@@ -108,33 +105,30 @@ productRouter.route('/:id')
           description: xss(description),
           price: price
         }
-
-             // validate the post
+                    // validate the post
         for (const key of Object.keys(updateItem)) {
             if (!updateItem[key]) {
-               
+            
                 return res.status(400).json({
                     error: `Missing field in ${key}`
-                })
+                }).end()
             }
         }
-
-        // check if there are characters 
+       
         for (const key of Object.keys(updateItem)) {
             if (/^ *$/.test(updateItem[key])) {
                 // It has only spaces, or is empty
                 return res.status(400).json({
                     error: "Input is only spaces. Must include characters!"
-                })
+                }).end();
             }
         }
-
         try{
 
             const item = await ProductService.updateById(id, updateItem);
-            const inserted = item.save();
+            
            
-            if(!inserted){
+            if(!item){
                 return res.status(400).json({
                     error: "Failed to insert item"
                 }).end()

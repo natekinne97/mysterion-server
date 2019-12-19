@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 const app = express();
 // import routes
 const productRouter = require('./Product/Product');
+const portfolioRouter = require('./Portfolio/portfolioRouter');
 
 let url;
 if(NODE_ENV === 'test'){
@@ -44,6 +45,7 @@ app.use(helmet())
 
 // use routes
 app.use('/api/product', productRouter);
+app.use('/api/portfolio', portfolioRouter);
 
 // catch all error handler
 app.use(function errorHandler(error, req, res, next) {
