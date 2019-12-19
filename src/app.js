@@ -1,6 +1,6 @@
 require("dotenv").config();
 // config file
-const { NODE_ENV } = require('./config')
+const { NODE_ENV, DBURL } = require('./config')
 const express = require("express");
 // loggers and error checkers
 const morgan = require("morgan");
@@ -8,20 +8,27 @@ const helmet = require("helmet");
 // cors
 const cors = require("cors");
 // db
-const MongoClient = require('mongodb').MongoClient;
+const mongoose = require('mongoose');
 const app = express();
 // import routes
 const productRouter = require('./Product/Product');
 
+let url;
+if(NODE_ENV === 'test'){
+    console.log('in testing mode');
+}
 
-const url = 'mongodb://localhost:27017/mysterion';
-
-MongoClient.connect(url, function(err, db) {
-    if(err) throw err;
-    console.log('database created');
-    db.close();
-}, { useUnifiedTopology: true });
-
+mongoose.connect(
+  DBURL,
+  { useUnifiedTopology: true, useNewUrlParser: true },
+  function(err) {
+    if (err) {
+      console.log(err, "error in connecting to mongo");
+    } else {
+      console.log("connected to mongo at: ", DBURL);
+    }
+  }
+);
 
 // logger
 app.use(morgan((NODE_ENV === 'production') ? 'tiny' : 'common', {

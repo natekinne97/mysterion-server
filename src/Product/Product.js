@@ -1,177 +1,74 @@
 const express = require('express');
+const {DBURL} = require('mongoose');
+const ProductService = require('./productservice');
 const jsonBodyParser = express.json();
-const { DBURL } = require("../config");
-const ObjectId = require("mongodb").ObjectId; 
 const xss = require('xss');
-// db
-const MongoClient = require('mongodb').MongoClient;
 const productRouter = express.Router();
 
-// get product by id
-productRouter.route('/:id')
-    .get((req, res, next)=>{
-        const id = req.params.id;
-        console.log(id, 'id');
-        
-        // connect to db
-        MongoClient.connect(DBURL, (err, db)=>{
-             let dbo = db.db("mysterion");
 
-             const query = {"_id": ObjectId(id)};
-            // search collection
-             dbo
-               .collection("product")
-               .find(query)
-               .toArray((err, result)=>{
-                if(err){
-                    console.log(err, 'error');
-                    res.status(400).json({
-                        error: "Error occured in retrieving element"
-                    })
-                }
-                 if (!result) {
-                   return res
-                     .status(400)
-                     .json({
-                       error: "Item not found!"
-                     })
-                     .end();
-                 }
-                db.close();
-                return res.status(200).json(result).end();
-
-               });
-        })
-    });
-
-// get all products
+// returns all elements
 productRouter.route('/')
-    .get((req, res, next)=>{
-        // connect to server
-        MongoClient.connect(DBURL, (err, db)=>{
-            let dbo = db.db('mysterion');
-            dbo.collection('product')
-            .find({})
-            .toArray((err, result)=>{
-                if(err){
-                    return res.status(400).json({
-                        error: "Something went wrong."
-                    }).end();
-                }
-                 if (!result) {
-                   return res
-                     .status(400)
-                     .json({
-                       error: "Item not found!"
-                     })
-                     .end();
-                 }
-                db.close();
-                return res.status(200).json(result);
-            });
-        });
+    .get( async (req, res, next)=>{
+        try{
+           
+            const items = await ProductService.findAll();
+            if(!items){
+                return res.status(400).json({
+                    error: "No Items Found"
+                })
+            }
+            return res.status(200).json(items);
+        }catch(err){
+            console.log(err);
+        }
     });
 
-// update an element
 productRouter.route('/:id')
-    .patch(jsonBodyParser,(req, res, next)=>{
-        const { image, title, description, price } = req.body;
+    .get(async (req, res, next)=>{
         const id = req.params.id;
-        const updatedProduct = {
+
+        const found = await ProductService.findById(id);
+        if(!found){
+            return res.status(400).json({
+                error: "Does not exist"
+            }).end();
+        }
+        return res.status(200).json(found);
+    });
+
+// insert new item
+productRouter.route('/')
+    .post( jsonBodyParser , async (req, res, next)=>{
+        const { image, title, description, price} = req.body;
+
+        
+        // check if price is integer
+        if(typeof price !== 'number'){
+            return res.status(400).json({
+                error: "Price must be a number"
+            })
+        }
+
+        const newItem = {
           image: xss(image),
           title: xss(title),
           description: xss(description),
           price: price
         };
 
-        // check for missing keys
-        for (const key of Object.keys(updatedProduct)) {
-          if (!updatedProduct[key]) {
-            return res
-              .status(400)
-              .json({
-                error: `Missing key in ${key}`
-              })
-              .end();
-          }
-        }
-
-        // check if only spaces were sent
-        // check if there are characters
-        for (const key of Object.keys(updatedProduct)) {
-          if (/^ *$/.test(updatedProduct[key])) {
-            // It has only spaces, or is empty
-            return res
-              .status(400)
-              .json({
-                error: "Input is only spaces. Must include characters!"
-              })
-              .end();
-          }
-        }
-
-        // connect to client
-        MongoClient.connect(DBURL, (err, db)=>{
-            if(err){
+         // validate the post
+        for (const key of Object.keys(newItem)) {
+            if (!newItem[key]) {
+               
                 return res.status(400).json({
-                    error: "Something went wrong connecting to db"
-                }).end();
-            }
-            const query = { _id: ObjectId(id) };
-            const setProduct = {$set: {updatedProduct}}
-             // ensure its mysterion
-            let dbo = db.db('mysterion');
-            
-            dbo.collection('product')
-                .findOneAndUpdate(query, setProduct, (err, result)=>{
-                    if(err){
-                       
-                        return res.status(400).json({
-                            error: "Could not find product"
-                        }).end();
-                    }
-
-                    if(!result){
-                        return res.status(400).json({
-                            error: "Item not found!"
-                        }).end();
-                    }
-
-                    return res.status(200).json(result.value);
-                });
-
-        });
-
-    })
-
-// get all from product collection
-productRouter.route('/')
-    .post(jsonBodyParser,(req, res, next)=>{
-        const {image, title, description, price} = req.body;
-
-        const newProduct = {
-            image: xss(image),
-            title: xss(title),
-            description: xss(description),
-            price: price
-        }
-
-        // check for missing keys
-        for(const key of Object.keys(newProduct)){
-            if(!newProduct[key]){
-               return res
-                 .status(400)
-                 .json({
-                   error: `Missing key in ${key}`
-                 })
-                 .end();
+                    error: `Missing field in ${key}`
+                })
             }
         }
 
-        // check if only spaces were sent
         // check if there are characters 
-        for (const key of Object.keys(newProduct)) {
-            if (/^ *$/.test(newProduct[key])) {
+        for (const key of Object.keys(newItem)) {
+            if (/^ *$/.test(newItem[key])) {
                 // It has only spaces, or is empty
                 return res.status(400).json({
                     error: "Input is only spaces. Must include characters!"
@@ -179,48 +76,100 @@ productRouter.route('/')
             }
         }
 
-        // connect to the client
-        MongoClient.connect(DBURL, (err, db)=>{
-            if(err) throw err;
-            // ensure its mysterion
-            let dbo = db.db('mysterion');
-            
-            // insert to collection
-            dbo.collection('product').insertOne(newProduct, (err, result)=>{
-                if(err)throw err;
-                console.log('something was inserted');
-                db.close();
-                console.log(result, 'result');
-                res.json(result.ops);
-            });
-        });
+         try {
+           let item = await ProductService.create(newItem);
+
+           return res.status(200).json(item);
+         } catch (err) {
+           console.log(err);
+           return res
+             .status(400)
+             .json({
+               error: "Something went wrong"
+             })
+             .end();
+         }
     });
 
-
-// delete product
 productRouter.route('/:id')
-    .delete((req, res, next)=>{
+    .patch(jsonBodyParser,async (req, res, next)=>{
+        const {image, title, description, price} = req.body;
         const id = req.params.id;
-        const query = { _id: ObjectId(id) };
-        MongoClient.connect(DBURL, (err, db)=>{
-            if(err){
+
+        if(typeof price !== 'number'){
+            return res.status(400).json({
+                error: "Price must be a number"
+            })
+        }
+
+        const updateItem = {
+          image: xss(image),
+          title: xss(title),
+          description: xss(description),
+          price: price
+        }
+
+             // validate the post
+        for (const key of Object.keys(updateItem)) {
+            if (!updateItem[key]) {
+               
                 return res.status(400).json({
-                    error: "Error in connecting to db"
-                }).end();
+                    error: `Missing field in ${key}`
+                })
             }
-            let dbo = db.db('mysterion');
+        }
 
-            dbo.collection('product')
-                .deleteOne(query, (err, result)=>{
-                    if(err){
-                        return res.status(400).json({
-                            error: "Error occured in deleting."
-                        }).end();
-                    }
-                    return res.status(200).end();
-                });
+        // check if there are characters 
+        for (const key of Object.keys(updateItem)) {
+            if (/^ *$/.test(updateItem[key])) {
+                // It has only spaces, or is empty
+                return res.status(400).json({
+                    error: "Input is only spaces. Must include characters!"
+                })
+            }
+        }
 
-        });
+        try{
+
+            const item = await ProductService.updateById(id, updateItem);
+            const inserted = item.save();
+           
+            if(!inserted){
+                return res.status(400).json({
+                    error: "Failed to insert item"
+                }).end()
+            }
+            
+            return res.status(200).json(item);
+
+        }catch(err){
+            console.log(err);
+            return res
+              .status(400)
+              .json({
+                error: "Something went wrong"
+              })
+              .end();
+        }
+
+    });
+
+// delete by id
+productRouter.route('/:id')
+    .delete(async (req, res, next)=>{
+        const id = req.params.id;
+
+        try{
+            let item = await ProductService.deleteById(id);
+
+            return res.status(200).json(item);
+
+        }catch(err){
+            console.log(err);
+            return res.status(400).json({
+                error: "Something went wrong"
+            }).end();
+        }
     })
 
 module.exports = productRouter;
